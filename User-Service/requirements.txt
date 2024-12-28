@@ -1,6 +1,45 @@
-Flask==3.0.0
-flask-cors==3.0.10
+# Flask and related packages
+Flask==2.3.3
+Flask-Cors==4.0.0
+Werkzeug==2.3.7
+
+# Database
 psycopg2-binary==2.9.7
+python-dotenv==1.0.0
+
+# Kafka
 kafka-python==2.0.2
-supertokens-python==0.12.3
+confluent-kafka==2.2.0  # Added for better Kafka handling
+
+# Authentication
+supertokens-python==0.12.6
+
+# Time and date handling
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Utilities
+requests==2.31.0
+urllib3==2.0.4
+uuid==1.30
+
+# Server
 uvicorn==0.23.2
+gunicorn==21.2.0
+
+# Logging and monitoring
+python-json-logger==2.0.7
+structlog==23.1.0  # Added for structured logging
+
+# Testing
+pytest==7.4.2
+pytest-cov==4.1.0
+pytest-mock==3.11.1  # Added for testing
+
+# Development
+black==23.7.0
+flake8==6.1.0
+isort==5.12.0
+
+# Monitoring
+prometheus-client==0.17.1  # Added for metrics

@@ -48,7 +48,7 @@ services:
       context: .
       dockerfile: gateway/Dockerfile
     ports:
-      - "8080:80803"
+      - "8080:8080"
     environment:
       - SUMMARIZER_URL=http://summarizer:8000
       - TRANSLATOR_URL=http://e2a-translator:8000
@@ -191,7 +191,7 @@ services:
       supertokens:
         condition: service_started
       kafka:
-        condition: service_started
+        condition: service_healthy
     networks:
       - db-network
       - app-network
