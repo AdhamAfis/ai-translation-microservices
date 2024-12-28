@@ -158,22 +158,43 @@ async def init_kafka_consumer():
         return None
 
 async def consume_summarization_requests(consumer: KafkaConsumer):
-    for message in consumer:
+    while True:
         try:
-            request_data = message.value
-            logger.info(f"Received request from Kafka: {request_data}")
-            
-            # Generate the summary based on the request
-            request = SummaryRequest(**request_data)
-            request_id = str(uuid.uuid4())
-            cache_key = hashlib.md5(f"{request.text}{request.style}{request.max_length}{request.bullet_points}".encode()).hexdigest()
-            
-            # Process summary request
-            style_prompt = STYLE_PROMPTS.get(request.style, STYLE_PROMPTS["formal"])
-            max_length_instruction = f"\nLimit the summary to approximately {request.max_length} characters."
-            bullet_points_instruction = "\nUse bullet points for main ideas." if request.bullet_points else ""
-            
-            prompt = f"""Based on the following style guide:
+            message = consumer.poll(timeout=1.0)
+            if message is None:
+                continue
+            if message.error():
+                if message.error().code() == KafkaError._PARTITION_EOF:
+                    logger.info(f"Reached end of partition: {message.partition()}")
+                    continue
+                else:
+                    logger.error(f"Consumer error: {message.error()}")
+                    # Implement backoff retry strategy
+                    await asyncio.sleep(5)
+                    continue
+
+            try:
+                request_data = message.value
+                logger.info(f"Received request from Kafka: {request_data}")
+                
+                # Validate request data
+                if not isinstance(request_data, dict):
+                    logger.error(f"Invalid message format: {request_data}")
+                    continue
+
+                request = SummaryRequest(**request_data)
+                request_id = str(uuid.uuid4())
+                cache_key = hashlib.md5(f"{request.text}{request.style}{request.max_length}{request.bullet_points}".encode()).hexdigest()
+                
+                # Process summary request with retry logic
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        style_prompt = STYLE_PROMPTS.get(request.style, STYLE_PROMPTS["formal"])
+                        max_length_instruction = f"\nLimit the summary to approximately {request.max_length} characters."
+                        bullet_points_instruction = "\nUse bullet points for main ideas." if request.bullet_points else ""
+                        
+                        prompt = f"""Based on the following style guide:
 {style_prompt}
 
 {max_length_instruction}
@@ -183,40 +204,52 @@ Text to summarize:
 {request.text}
 
 Provide a concise summary:"""
-            
-            summary = generate_completion(prompt)
-            
-            # Trim summary if it exceeds max_length
-            if len(summary) > request.max_length:
-                summary = summary[:request.max_length].rsplit(' ', 1)[0] + '...'
-            
-            result = {
-                "summary": summary,
-                "style": request.style,
-                "bullet_points": request.bullet_points,
-                "length": len(summary),
-                "truncated": len(summary) < len(generate_completion(prompt))
-            }
-            
-            summary_cache[cache_key] = result
-            summary_status[request_id] = {"status": "completed", "result": result}
-            
-            # Send the result to the response topic
-            await send_to_kafka(
-                app.state.kafka_producer,
-                {
-                    'correlation_id': request.correlation_id,
-                    'user_id': request.user_id,
-                    'chat_id': request.chat_id,
-                    'input_text': request.text,
-                    'output_text': result['summary'],
-                    'status': 'completed',
-                    'formality': request.style
-                },
-                'summarization-response'  # The topic for responses
-            )
+                        
+                        summary = generate_completion(prompt)
+                        
+                        if len(summary) > request.max_length:
+                            summary = summary[:request.max_length].rsplit(' ', 1)[0] + '...'
+                        
+                        result = {
+                            "summary": summary,
+                            "style": request.style,
+                            "bullet_points": request.bullet_points,
+                            "length": len(summary),
+                            "truncated": len(summary) < len(generate_completion(prompt))
+                        }
+                        
+                        summary_cache[cache_key] = result
+                        summary_status[request_id] = {"status": "completed", "result": result}
+                        
+                        # Send the result to the response topic with retry
+                        await send_to_kafka(
+                            app.state.kafka_producer,
+                            {
+                                'correlation_id': request.correlation_id,
+                                'user_id': request.user_id,
+                                'chat_id': request.chat_id,
+                                'input_text': request.text,
+                                'output_text': result['summary'],
+                                'status': 'completed',
+                                'formality': request.style
+                            },
+                            'summarization-response'
+                        )
+                        break
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                            logger.error(f"Failed to process message after {max_retries} attempts: {e}")
+                            raise
+                        logger.warning(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
+                        await asyncio.sleep(1)
+                        
+            except Exception as e:
+                logger.error(f"Error processing Kafka message: {e}")
+                # Consider implementing a dead letter queue here
+                
         except Exception as e:
-            logger.error(f"Error processing Kafka message: {str(e)}")
+            logger.error(f"Critical consumer error: {e}")
+            await asyncio.sleep(5)  # Wait before retrying
 
 async def send_to_kafka(producer, message, topic):
     if not producer:

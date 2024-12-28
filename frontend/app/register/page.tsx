@@ -18,11 +18,8 @@ const RegisterPage: React.FC = () => {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8000/auth/signup", {
+      const response = await callAPI<AuthResponse>("/signup", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           formFields: [
             { id: "email", value: email },
@@ -32,9 +29,8 @@ const RegisterPage: React.FC = () => {
         credentials: "include",
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Registration failed");
+      if (response.error) {
+        throw new Error(response.error.detail);
       }
 
       router.push("/login");

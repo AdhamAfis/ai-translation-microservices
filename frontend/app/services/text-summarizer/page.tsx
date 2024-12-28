@@ -8,8 +8,9 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { callAPI } from "@/lib/api";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { TranslationHistory } from "@/components/history/TranslationHistory";
 
 type SummaryResponse = {
   id: string;
@@ -39,12 +40,26 @@ const TextSummarizerPage: React.FC = () => {
   const [style, setStyle] = useState("formal");
   const [maxLength, setMaxLength] = useState(500);
   const [bulletPoints, setBulletPoints] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    const response = await callAPI("/history/user123?type=summarization");
+    if (response.data) {
+      setHistory(response.data.data);
+    }
+  };
 
   const handleSummarize = async () => {
     setIsLoading(true);
-    const response = await callAPI<SummaryResponse>("/summarize", {
+    const response = await callAPI<SummaryResponse>("/summarization", {
       method: "POST",
       body: JSON.stringify({
+        user_id: "user123",
+        chat_id: Date.now().toString(),
         text: input,
         style: style,
         max_length: maxLength,
@@ -56,6 +71,7 @@ const TextSummarizerPage: React.FC = () => {
       toast.error(response.error.detail);
     } else if (response.data) {
       setOutput(response.data.result.summary);
+      fetchHistory(); // Refresh history after new summarization
     }
     
     setIsLoading(false);
@@ -140,6 +156,10 @@ const TextSummarizerPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      <TranslationHistory 
+        history={history} 
+        title="Summarization History" 
+      />
     </div>
   );
 };

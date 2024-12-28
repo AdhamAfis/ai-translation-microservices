@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { callAPI } from "@/lib/api";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { TranslationHistory } from "@/components/history/TranslationHistory";
 
 type TranslationResponse = {
   id: string;
@@ -21,18 +22,35 @@ const ArabicToEnglishPage: React.FC = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    const response = await callAPI("/history/user123?type=a2e-translation");
+    if (response.data) {
+      setHistory(response.data.data);
+    }
+  };
 
   const handleTranslate = async () => {
     setIsLoading(true);
-    const response = await callAPI<TranslationResponse>("/translate/arabic-to-english", {
+    const response = await callAPI<TranslationResponse>("/a2e", {
       method: "POST",
-      body: JSON.stringify({ text: input })
+      body: JSON.stringify({ 
+        user_id: "user123",
+        chat_id: Date.now().toString(),
+        text: input 
+      })
     });
 
     if (response.error) {
       toast.error(response.error.detail);
     } else if (response.data) {
       setOutput(response.data.result.translation);
+      fetchHistory(); // Refresh history after new translation
     }
     
     setIsLoading(false);
@@ -77,6 +95,11 @@ const ArabicToEnglishPage: React.FC = () => {
             />
           </CardContent>
         </Card>
+
+        <TranslationHistory 
+          history={history} 
+          title="Translation History" 
+        />
       </div>
     </div>
   );

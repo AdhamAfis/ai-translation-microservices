@@ -70,106 +70,82 @@ class SummarizationRequest(BaseModel):
     input_text: str
     formality: str
 
+class HistoryRequest(BaseModel):
+    user_id: int
+    type: str = None  # Optional filter by type (e2a, a2e, summarization)
+
 @app.post("/login")
 async def login(login_request: LoginRequest):
     try:
-        # Generate a unique correlation ID
         correlation_id = str(uuid.uuid4())
-
-        # Prepare the message with the correlation ID
         login_data = login_request.model_dump()
         login_data['correlation_id'] = correlation_id
         login_request_json = json.dumps(login_data)
 
-        # Produce the message to Kafka
         producer.produce(KAFKA_LOGIN_TOPIC, login_request_json.encode('utf-8'), callback=delivery_callback)
-        print(f"Attempting to produce to {KAFKA_BOOTSTRAP}.{KAFKA_LOGIN_TOPIC}")
         producer.flush()
 
-        # Return the correlation ID to the client
-        return {"status": "success", "message": f"Login request sent to topic '{KAFKA_LOGIN_TOPIC}'.", "correlation_id": correlation_id}
+        return {"status": "success", "message": "Login request sent", "correlation_id": correlation_id}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 @app.post("/signup")
 async def signup(signup_request: SignupRequest):
     try:
-        # Generate a unique correlation ID
         correlation_id = str(uuid.uuid4())
-
-        # Prepare the message with the correlation ID
         signup_data = signup_request.model_dump()
         signup_data['correlation_id'] = correlation_id
         signup_request_json = json.dumps(signup_data)
 
-        # Produce the message to Kafka
         producer.produce(KAFKA_SIGNUP_TOPIC, signup_request_json.encode('utf-8'), callback=delivery_callback)
-        print(f"Attempting to produce to {KAFKA_BOOTSTRAP}.{KAFKA_SIGNUP_TOPIC}")
         producer.flush()
 
-        # Return the correlation ID to the client
-        return {"status": "success", "message": f"Signup request sent to topic '{KAFKA_SIGNUP_TOPIC}'.", "correlation_id": correlation_id}
+        return {"status": "success", "message": "Signup request sent", "correlation_id": correlation_id}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 @app.post("/e2a")
 async def e2a_translation(e2a_request: E2ATranslationRequest):
     try:
-        # Generate a unique correlation ID
         correlation_id = str(uuid.uuid4())
-
-        # Prepare the message with the correlation ID
         e2a_data = e2a_request.model_dump()
         e2a_data['correlation_id'] = correlation_id
         e2a_request_json = json.dumps(e2a_data)
 
-        # Produce the message to Kafka
         producer.produce(KAFKA_E2A_TOPIC, e2a_request_json.encode('utf-8'), callback=delivery_callback)
-        print(f"Attempting to produce to {KAFKA_BOOTSTRAP}.{KAFKA_E2A_TOPIC}")
         producer.flush()
 
-        # Return the correlation ID to the client
-        return {"status": "success", "message": f"E2A translation request sent to topic '{KAFKA_E2A_TOPIC}'.", "correlation_id": correlation_id}
+        return {"status": "success", "message": "Translation request sent", "correlation_id": correlation_id}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-    
+
 @app.post("/a2e")
 async def a2e_translation(a2e_request: A2ETranslationRequest):
     try:
-        # Generate a unique correlation ID
         correlation_id = str(uuid.uuid4())
-
-        # Prepare the message with the correlation ID
         a2e_data = a2e_request.model_dump()
         a2e_data['correlation_id'] = correlation_id
         a2e_request_json = json.dumps(a2e_data)
 
-        # Produce the message to Kafka
         producer.produce(KAFKA_A2E_TOPIC, a2e_request_json.encode('utf-8'), callback=delivery_callback)
         producer.flush()
 
-        # Return the correlation ID to the client
-        return {"status": "success", "message": f"A2E translation request sent to topic '{KAFKA_A2E_TOPIC}'.", "correlation_id": correlation_id}
+        return {"status": "success", "message": "Translation request sent", "correlation_id": correlation_id}
     except Exception as e:
         return {"status": "error", "message": str(e)}
-    
+
 @app.post("/summarization")
 async def summarization(summarization_request: SummarizationRequest):
     try:
-        # Generate a unique correlation ID
         correlation_id = str(uuid.uuid4())
-
-        # Prepare the message with the correlation ID
         summarization_data = summarization_request.model_dump()
         summarization_data['correlation_id'] = correlation_id
         summarization_request_json = json.dumps(summarization_data)
 
-        # Produce the message to Kafka
         producer.produce(KAFKA_SUMMARIZATION_TOPIC, summarization_request_json.encode('utf-8'), callback=delivery_callback)
         producer.flush()
 
-        # Return the correlation ID to the client
-        return {"status": "success", "message": f"Summarization request sent to topic '{KAFKA_SUMMARIZATION_TOPIC}'.", "correlation_id": correlation_id}
+        return {"status": "success", "message": "Summarization request sent", "correlation_id": correlation_id}
     except Exception as e:
         return {"status": "error", "message": str(e)}
     
@@ -364,6 +340,22 @@ def handle_summarization_response(message_value):
     except requests.exceptions.RequestException as e:
         print(f"Failed to forward summarization response to frontend: {e}")
 
+@app.get("/history/{user_id}")
+async def get_history(user_id: int, type: str = None):
+    try:
+        # Connect to user service to fetch history
+        url = f"{os.getenv('USER_SERVICE_URL', 'http://user-service:3001')}/history/{user_id}"
+        if type:
+            url += f"?type={type}"
+            
+        response = requests.get(url)
+        if response.status_code != 200:
+            return {"status": "error", "message": "Failed to fetch history"}
+            
+        history_data = response.json()
+        return {"status": "success", "data": history_data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.on_event("startup")
 def startup_event():

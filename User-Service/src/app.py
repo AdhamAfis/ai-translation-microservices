@@ -28,7 +28,12 @@ consumer = KafkaConsumer(
     'login', 'signup', 'e2a-translation-response', 'a2e-translation-response', 'summarization-response',
     bootstrap_servers=KAFKA_BROKER,
     value_deserializer=lambda v: json.loads(v.decode('utf-8')),
-    group_id='user-service-group'
+    group_id='user-service-group',
+    auto_offset_reset='earliest',
+    enable_auto_commit=True,
+    max_poll_interval_ms=300000,  # 5 minutes
+    session_timeout_ms=180000,    # 3 minutes
+    heartbeat_interval_ms=60000   # 1 minute
 )
 
 def get_db_connection():
@@ -153,6 +158,27 @@ def initialize_app():
     except Exception as e:
         print(f"Failed to initialize application: {e}")
         exit(1)
+
+@app.route('/history/<user_id>', methods=['GET'])
+def get_user_history(user_id):
+    try:
+        type_filter = request.args.get('type')
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                if type_filter:
+                    cur.execute(
+                        'SELECT * FROM chat WHERE user_id = %s AND type = %s ORDER BY timestamp DESC',
+                        (user_id, type_filter)
+                    )
+                else:
+                    cur.execute(
+                        'SELECT * FROM chat WHERE user_id = %s ORDER BY timestamp DESC',
+                        (user_id,)
+                    )
+                history = cur.fetchall()
+                return jsonify({"status": "success", "data": history})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

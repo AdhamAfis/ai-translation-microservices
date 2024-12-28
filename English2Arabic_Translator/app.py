@@ -251,3 +251,50 @@ if __name__ == "__main__":
         workers=multiprocessing.cpu_count(),
         log_level="info"
     )
+
+def handle_translation_or_summarization(data, topic):
+    try:
+        type_map = {
+            'e2a-translation-response': 'e2a-translation',
+            'a2e-translation-response': 'a2e-translation',
+            'summarization-response': 'summarization'
+        }
+
+        message_type = type_map.get(topic)
+        if not message_type:
+            logger.error(f"Unknown topic: {topic}")
+            return
+
+        user_id = data.get('user_id')
+        chat_id = data.get('chat_id')
+        in_text = data.get('in_text')
+        out_text = data.get('out_text')
+        formality = data.get('formality') if topic == 'summarization-response' else None
+
+        if not all([user_id, chat_id, in_text, out_text]):
+            logger.error(f"Missing required fields in message: {data}")
+            return
+
+        max_retries = 3
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                with get_db_connection() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            'INSERT INTO chat (user_id, chat_id, in_text, out_text, type, formality, timestamp) VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)',
+                            (user_id, chat_id, in_text, out_text, message_type, formality)
+                        )
+                        conn.commit()
+                logger.info(f"Successfully stored message for topic {topic}: {data}")
+                break
+            except Exception as e:
+                retry_count += 1
+                if retry_count == max_retries:
+                    logger.error(f"Failed to store message after {max_retries} attempts for topic {topic}: {e}")
+                    raise
+                logger.warning(f"Retry {retry_count}/{max_retries} for topic {topic}: {e}")
+                time.sleep(1)  # Wait before retrying
+    except Exception as e:
+        logger.error(f"Error processing message for topic {topic}: {e}")
+        # Consider implementing a dead letter queue here
