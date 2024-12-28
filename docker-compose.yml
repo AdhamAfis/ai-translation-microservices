@@ -56,9 +56,21 @@ services:
       - JAEGER_PORT=6831
       - MAX_RETRIES=5
       - RETRY_DELAY=5
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_LOGIN_TOPIC=login
+      - KAFKA_SIGNUP_TOPIC=signup
+      - KAFKA_E2A_TOPIC=e2a-translation
+      - KAFKA_A2E_TOPIC=a2e-translation
+      - KAFKA_SUMMARIZATION_TOPIC=summarization
     networks:
       - microservices-network
+      - kafka-network
+      - app-network
     depends_on:
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
       jaeger:
         condition: service_started
       summarizer:
@@ -224,10 +236,10 @@ services:
       - KAFKA_BROKER_ID=1
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,INTERNAL://kafka:9093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
     volumes:
       - kafka_data:/bitnami/kafka
       - ./init_topics.sh:/bitnami/scripts/init_topics.sh 
