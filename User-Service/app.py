@@ -17,7 +17,7 @@ CORS(app, supports_credentials=True, origins=["http://localhost:4200"])
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 SUPERTOKENS_API_KEY = os.getenv('SUPERTOKENS_API_KEY')
-KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'localhost:9092')
+KAFKA_BROKER =  'kafka:9092'
 
 producer = KafkaProducer(
     bootstrap_servers=KAFKA_BROKER,

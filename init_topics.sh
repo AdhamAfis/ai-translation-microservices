@@ -10,7 +10,7 @@ response_topics=("${main_topics[@]/%/-response}")
 all_topics=("${main_topics[@]}" "${response_topics[@]}")
 
 # Kafka broker address
-BOOTSTRAP_SERVER="localhost:9092"
+BOOTSTRAP_SERVER="kafka:9092"
 
 # Function to create a Kafka topic
 create_topic() {

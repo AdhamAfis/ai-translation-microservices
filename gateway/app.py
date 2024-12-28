@@ -212,7 +212,7 @@ def handle_login_response(message_value):
         return
 
     # Send the response as JSON to http://os.getenv('FRONTEND_ROUTE')/exampleemail@xyz/login
-    url = f'http://{os.getenv('FRONTEND_ROUTE')}/{response.get('email')}/login'
+    url = f"http://{os.getenv('FRONTEND_ROUTE')}/{response.get('email')}/login"
     print("attempting to send login response to frontend")
     try:
         r = requests.post(url, json=response)
@@ -232,7 +232,7 @@ def handle_signup_response(message_value):
         return
 
     # Send the response as JSON to  http://os.getenv('FRONTEND_ROUTE')/exampleemail@xyz/signup
-    url = f'http://{os.getenv('FRONTEND_ROUTE')}/{response.get('email')}/signup'
+    url = f"http://{os.getenv('FRONTEND_ROUTE')}/{response.get('email')}/signup"
     try:
         r = requests.post(url, json=response)
         r.raise_for_status()
@@ -257,7 +257,7 @@ def handle_e2a_translation_response(message_value):
         return
 
     # Construct the URL
-    url = f'http://{os.getenv('FRONTEND_ROUTE')}/{user_id}/e2a'
+    url = f"http://{os.getenv('FRONTEND_ROUTE')}/{user_id}/e2a"
 
     # Prepare the payload
     payload = {
@@ -289,7 +289,7 @@ def handle_a2e_translation_response(message_value):
         return
 
     # Construct the URL
-    url = f'http://{os.getenv('FRONTEND_ROUTE')}/{user_id}/a2e'
+    url = f"http://{os.getenv('FRONTEND_ROUTE')}/{user_id}/a2e"
 
     # Prepare the payload
     payload = {
@@ -322,7 +322,7 @@ def handle_summarization_response(message_value):
         return
 
     # Construct the URL
-    url = f'http://{os.getenv('FRONTEND_ROUTE')}/{user_id}/summarization'
+    url = f"http://{os.getenv('FRONTEND_ROUTE')}/{user_id}/summarization"
 
     # Prepare the payload
     payload = {
