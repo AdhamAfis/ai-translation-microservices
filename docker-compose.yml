@@ -360,14 +360,22 @@ networks:
   kafka-network:
     name: kafka-network
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/16
   db-network:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.0.0/16
   app-network:
     driver: bridge
     ipam:
       driver: default
       config:
-        - subnet: 172.21.0.0/16
+        - subnet: 172.23.0.0/16
 
 volumes:
   kafka_data:

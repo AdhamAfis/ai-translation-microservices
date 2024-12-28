@@ -1,15 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-type HistoryItem = {
-  id: string;
-  timestamp: string;
-  in_text: string;
-  out_text: string;
-  type: 'e2a-translation' | 'a2e-translation' | 'summarization';
-  formality?: string;
-};
+import { HistoryItem } from "@/lib/api";
 
 type TranslationHistoryProps = {
   history: HistoryItem[];

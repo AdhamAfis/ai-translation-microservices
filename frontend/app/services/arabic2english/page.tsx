@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { callAPI } from "@/lib/api";
+import { callAPI, HistoryResponse } from "@/lib/api";
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { TranslationHistory } from "@/components/history/TranslationHistory";
@@ -22,14 +22,14 @@ const ArabicToEnglishPage: React.FC = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState<HistoryResponse['data']>([]);
 
   useEffect(() => {
     fetchHistory();
   }, []);
 
   const fetchHistory = async () => {
-    const response = await callAPI("/history/user123?type=a2e-translation");
+    const response = await callAPI<HistoryResponse>("/history/user123?type=a2e-translation");
     if (response.data) {
       setHistory(response.data.data);
     }
@@ -70,7 +70,7 @@ const ArabicToEnglishPage: React.FC = () => {
               placeholder="أدخل النص العربي هنا..."
               className="min-h-[200px] text-right"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
               dir="rtl"
             />
           </CardContent>

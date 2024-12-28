@@ -1,5 +1,13 @@
 import { toast } from "sonner";
 
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      NEXT_PUBLIC_API_URL: string;
+    }
+  }
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export type APIResponse<T> = {
@@ -8,6 +16,24 @@ export type APIResponse<T> = {
     status: number;
     detail: string;
   };
+};
+
+export type AuthResponse = {
+  token?: string;
+  user_id?: string;
+};
+
+export type HistoryItem = {
+  id: string;
+  timestamp: string;
+  in_text: string;
+  out_text: string;
+  type: 'e2a-translation' | 'a2e-translation' | 'summarization';
+  formality?: string;
+};
+
+export type HistoryResponse = {
+  data: HistoryItem[];
 };
 
 export async function callAPI<T>(
