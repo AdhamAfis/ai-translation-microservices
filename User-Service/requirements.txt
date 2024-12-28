@@ -1,5 +1,5 @@
 # Flask and related packages
-Flask==2.3.3
+Flask==2.2
 Flask-Cors==4.0.0
 Werkzeug==2.3.7
 
@@ -43,3 +43,6 @@ isort==5.12.0
 
 # Monitoring
 prometheus-client==0.17.1  # Added for metrics
+waitress==2.1.2
+fastapi==0.104.1
+pydantic[Email]==1.10.0
