@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
+import { callAPI, AuthResponse } from "@/lib/api";
 import Link from "next/link";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -18,28 +20,25 @@ const RegisterPage: React.FC = () => {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8000/auth/signup", {
+      const response = await callAPI<AuthResponse>("/signup", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           formFields: [
             { id: "email", value: email },
             { id: "password", value: password },
           ],
         }),
-        credentials: "include",
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Registration failed");
+      if (response.error) {
+        throw new Error(response.error.detail);
       }
 
+      toast.success("Registration successful!");
       router.push("/login");
     } catch (err: any) {
       setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -59,7 +58,7 @@ const RegisterPage: React.FC = () => {
                 type="email"
                 placeholder="Email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
               />
             </div>
@@ -68,7 +67,7 @@ const RegisterPage: React.FC = () => {
                 type="password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
               />
             </div>

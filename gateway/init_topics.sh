@@ -1,33 +1,19 @@
-#!/bin/bash
+#!/bin/sh
 
-# Define the main topics
-main_topics=("login" "signup" "e2a-translation" "a2e-translation" "summarization")
+# Path to the Kafka topics command
+KT="/opt/bitnami/kafka/bin/kafka-topics.sh"
 
-# Define the response topics by appending '-response' to each main topic
-response_topics=("${main_topics[@]/%/-response}")
+# Wait for Kafka to be up and running
+echo "Waiting for Kafka to be ready..."
+"$KT" --bootstrap-server localhost:9092 --list
 
-# Combine main topics and response topics
-all_topics=("${main_topics[@]}" "${response_topics[@]}")
-
-# Kafka broker address
-BOOTSTRAP_SERVER="localhost:9092"
-
-# Function to create a Kafka topic
-create_topic() {
-    local topic=$1
-    echo "Creating topic: $topic"
-    docker exec kafka kafka-topics.sh \
-        --create \
-        --topic "$topic" \
-        --bootstrap-server "$BOOTSTRAP_SERVER" \
-        --replication-factor 1 \
-        --partitions 1 \
-        --if-not-exists
-}
-
-# Iterate over all topics and create them
-for topic in "${all_topics[@]}"; do
-    create_topic "$topic"
+# Create the Kafka topics
+echo "Creating Kafka topics..."
+for topic in login signup e2a-translation a2e-translation summarization login-response signup-response e2a-translation-response a2e-translation-response summarization-response; do
+  "$KT" --bootstrap-server localhost:9092 --create --if-not-exists --topic $topic --partitions 1 --replication-factor 1
+  echo "Created topic: $topic"
 done
 
-echo "All topics have been created successfully."
+# List all topics to verify creation
+echo "Successfully created the following topics:"
+"$KT" --bootstrap-server localhost:9092 --list

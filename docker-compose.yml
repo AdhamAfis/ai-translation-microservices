@@ -56,14 +56,22 @@ services:
       - JAEGER_PORT=6831
       - MAX_RETRIES=5
       - RETRY_DELAY=5
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_LOGIN_TOPIC=login
+      - KAFKA_SIGNUP_TOPIC=signup
+      - KAFKA_E2A_TOPIC=e2a-translation
+      - KAFKA_A2E_TOPIC=a2e-translation
+      - KAFKA_SUMMARIZATION_TOPIC=summarization
     networks:
       - microservices-network
+      - kafka-network
+      - app-network
     depends_on:
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
       jaeger:
-        condition: service_started
-      summarizer:
-        condition: service_started
-      e2a-translator:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -182,10 +190,13 @@ services:
         condition: service_healthy
       supertokens:
         condition: service_started
+      kafka:
+        condition: service_healthy
     networks:
       - db-network
       - app-network
-      - microservices-network  # Add this network
+      - microservices-network  
+      - kafka-network # Add this network
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1"]
       interval: 10s
@@ -196,7 +207,7 @@ services:
   zookeeper:
     <<: *common-config
     image: bitnami/zookeeper:latest
-    platform: linux/arm64/v8
+    platform: linux/amd64
     ports:
       - "2181:2181"
     environment:
@@ -217,20 +228,19 @@ services:
   kafka:
     <<: *common-config
     image: bitnami/kafka:latest
-    platform: linux/arm64/v8
+    platform: linux/amd64
     ports:
       - "9092:9092"
     environment:
       - KAFKA_BROKER_ID=1
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,INTERNAL://kafka:9093
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
     volumes:
       - kafka_data:/bitnami/kafka
-      - ./init_topics.sh:/bitnami/scripts/init_topics.sh 
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -240,9 +250,33 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    command: ["/bin/bash", "-c", "/bitnami/scripts/init_topics.sh && /opt/bitnami/scripts/kafka/run.sh"]
     networks:
       - kafka-network
+
+  init-kafka:
+    image: bitnami/kafka:latest
+    platform: linux/amd64
+    working_dir: /opt/bitnami/kafka/bin
+    entrypoint: /bin/bash
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - kafka-network
+    command: |
+      bash -c "
+        kafka-topics.sh --create --topic login --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic signup --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic e2a-translator --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic a2e-translator --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic summarization --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic login-response --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic signup-response --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic e2a-translator-response --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic a2e-translator-response --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-topics.sh --create --topic summarization-response --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 &&
+        kafka-server-start.sh /opt/bitnami/kafka/config/server.properties
+      "
 
   prometheus:
     image: prom/prometheus:latest
@@ -360,14 +394,22 @@ networks:
   kafka-network:
     name: kafka-network
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/16
   db-network:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.0.0/16
   app-network:
     driver: bridge
     ipam:
       driver: default
       config:
-        - subnet: 172.21.0.0/16
+        - subnet: 172.23.0.0/16
 
 volumes:
   kafka_data:

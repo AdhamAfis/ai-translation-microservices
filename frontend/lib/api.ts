@@ -1,44 +1,78 @@
-export type ApiError = {
-  detail: string;
-  status: number;
-};
+import { toast } from "sonner";
 
-export class ApiResponse<T> {
-  data?: T;
-  error?: ApiError;
-
-  constructor(data?: T, error?: ApiError) {
-    this.data = data;
-    this.error = error;
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      NEXT_PUBLIC_API_URL: string;
+    }
   }
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-export async function callAPI<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+export type APIResponse<T> = {
+  data?: T;
+  error?: {
+    status: number;
+    detail: string;
+  };
+};
+
+export type AuthResponse = {
+  token?: string;
+  user_id?: string;
+};
+
+export type HistoryItem = {
+  id: string;
+  timestamp: string;
+  in_text: string;
+  out_text: string;
+  type: 'e2a-translation' | 'a2e-translation' | 'summarization';
+  formality?: string;
+};
+
+export type HistoryResponse = {
+  data: HistoryItem[];
+};
+
+export async function callAPI<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<APIResponse<T>> {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
-    const data = await response.json();
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
 
     if (!response.ok) {
-      return new ApiResponse<T>(undefined, {
-        detail: data.detail || 'An error occurred',
-        status: response.status
-      });
+      const error = await response.json();
+      return {
+        error: {
+          status: response.status,
+          detail: error.message || 'An error occurred',
+        },
+      };
     }
 
-    return new ApiResponse<T>(data);
+    const data = await response.json();
+    return { data };
   } catch (error) {
-    return new ApiResponse<T>(undefined, {
-      detail: error instanceof Error ? error.message : 'An unexpected error occurred',
-      status: 500
-    });
+    console.error('API call failed:', error);
+    toast.error('Failed to connect to the server');
+    return {
+      error: {
+        status: 500,
+        detail: 'Failed to connect to the server',
+      },
+    };
   }
 }

@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { callAPI } from "@/lib/api";
-import React, { useState } from "react";
+import { callAPI, HistoryResponse } from "@/lib/api";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { TranslationHistory } from "@/components/history/TranslationHistory";
 
 type SummaryResponse = {
   id: string;
@@ -24,7 +25,9 @@ type SummaryResponse = {
   cache_hit: boolean;
 };
 
-const styles = [
+type StyleType = "formal" | "informal" | "technical" | "executive" | "creative";
+
+const styles: { value: StyleType; label: string }[] = [
   { value: "formal", label: "Formal" },
   { value: "informal", label: "Informal" },
   { value: "technical", label: "Technical" },
@@ -36,15 +39,33 @@ const TextSummarizerPage: React.FC = () => {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [style, setStyle] = useState("formal");
+  const [style, setStyle] = useState<StyleType>("formal");
   const [maxLength, setMaxLength] = useState(500);
   const [bulletPoints, setBulletPoints] = useState(false);
+  const [history, setHistory] = useState<HistoryResponse['data']>([]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    const response = await callAPI<HistoryResponse>("/history/user123?type=summarization");
+    if (response.data) {
+      setHistory(response.data.data);
+    }
+  };
+
+  const handleStyleChange = (value: StyleType) => {
+    setStyle(value);
+  };
 
   const handleSummarize = async () => {
     setIsLoading(true);
-    const response = await callAPI<SummaryResponse>("/summarize", {
+    const response = await callAPI<SummaryResponse>("/summarization", {
       method: "POST",
       body: JSON.stringify({
+        user_id: "user123",
+        chat_id: Date.now().toString(),
         text: input,
         style: style,
         max_length: maxLength,
@@ -56,6 +77,7 @@ const TextSummarizerPage: React.FC = () => {
       toast.error(response.error.detail);
     } else if (response.data) {
       setOutput(response.data.result.summary);
+      fetchHistory(); // Refresh history after new summarization
     }
     
     setIsLoading(false);
@@ -75,7 +97,7 @@ const TextSummarizerPage: React.FC = () => {
               placeholder="Enter the text you want to summarize..."
               className="min-h-[200px]"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
             />
           </CardContent>
         </Card>
@@ -85,7 +107,7 @@ const TextSummarizerPage: React.FC = () => {
           <CardContent className="grid gap-6">
             <div className="grid gap-2">
               <Label>Style</Label>
-              <Select value={style} onValueChange={setStyle}>
+              <Select value={style} onValueChange={handleStyleChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select style" />
                 </SelectTrigger>
@@ -103,7 +125,7 @@ const TextSummarizerPage: React.FC = () => {
               <Label>Maximum Length ({maxLength} characters)</Label>
               <Slider
                 value={[maxLength]}
-                onValueChange={(value) => setMaxLength(value[0])}
+                onValueChange={(value: number[]) => setMaxLength(value[0])}
                 min={100}
                 max={1000}
                 step={50}
@@ -139,6 +161,11 @@ const TextSummarizerPage: React.FC = () => {
             />
           </CardContent>
         </Card>
+
+        <TranslationHistory 
+          history={history} 
+          title="Summarization History" 
+        />
       </div>
     </div>
   );

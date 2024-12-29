@@ -23,7 +23,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setError("");
 
-    const response = await callAPI<AuthResponse>("/auth/signin", {
+    const response = await callAPI<AuthResponse>("/login", {
       method: "POST",
       body: JSON.stringify({
         formFields: [
